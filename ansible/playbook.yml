@@ -1,0 +1,83 @@
+---
+- name: Configure Windows 11 VM for Video Encoding
+  hosts: windows
+  gather_facts: false
+
+  tasks:
+    - name: Set Timezone to Tokyo Standard Time
+      ansible.windows.win_timezone:
+        timezone: Tokyo Standard Time
+
+    - name: Set Japanese as the preferred language
+      ansible.windows.win_shell: |
+        $LanguageList = Get-WinUserLanguageList
+        if (-not ($LanguageList.LanguageTag -like 'ja*')) {
+            $LanguageList.Add('ja-JP')
+            Set-WinUserLanguageList -LanguageList $LanguageList -Force
+            return "Changed"
+        }
+      register: lang_list_result
+      changed_when: "'Changed' in lang_list_result.stdout"
+
+    - name: Ensure Japanese Language Pack is installed
+      ansible.windows.win_shell: |
+        if (-not ((Get-InstalledLanguage).LanguageTag -like 'ja*')) {
+            Install-Language ja-JP
+            return "Installed"
+        }
+      register: lang_install_result
+      changed_when: "'Installed' in lang_install_result.stdout"
+
+    - name: Set System Locale and UI Language to Japanese
+      ansible.windows.win_shell: |
+        Set-WinUILanguageOverride -Language ja-JP
+        Set-WinSystemLocale -SystemLocale ja-JP
+        Set-WinDefaultInputMethodOverride -InputTip "0411:00000411"
+      register: locale_result
+      changed_when: locale_result.rc == 0
+
+    - name: Change RDP Port to 8080
+      ansible.windows.win_regedit:
+        path: HKLM:\System\CurrentControlSet\Control\Terminal Server\WinStations\RDP-Tcp
+        name: PortNumber
+        data: 8080
+        type: dword
+      register: rdp_port
+
+    - name: Allow incoming TCP traffic on RDP port 8080
+      community.windows.win_firewall_rule:
+        name: Custom RDP Port 8080
+        localport: 8080
+        action: allow
+        direction: in
+        protocol: tcp
+        profiles: domain,private,public
+        state: present
+        enabled: yes
+
+    - name: Restart Windows Remote Desktop Service (if port changed)
+      ansible.windows.win_service:
+        name: TermService
+        state: restarted
+        force_dependent_services: true
+      when: rdp_port.changed
+
+    - name: Ensure Z drive is unmapped before re-mapping
+      ansible.windows.win_mapped_drive:
+        letter: Z
+        state: absent
+
+    - name: Map Azure Files share to Z drive
+      ansible.windows.win_mapped_drive:
+        letter: Z
+        path: '\\{{ storage_account_name }}.file.core.windows.net\encoded-videos'
+        username: 'Azure\{{ storage_account_name }}'
+        password: "{{ storage_key }}"
+        state: present
+      when: storage_account_name is defined and storage_key is defined
+
+    - name: Run Windows Update asynchronously
+      ansible.windows.win_shell: |
+        Start-Process powershell.exe -ArgumentList "-WindowStyle Hidden -Command Install-Module -Name PSWindowsUpdate -Force -Confirm:\$false; Import-Module PSWindowsUpdate; Install-WindowsUpdate -MicrosoftUpdate -AcceptAll -AutoReboot"
+      async: 1
+      poll: 0

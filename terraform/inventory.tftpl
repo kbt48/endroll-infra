@@ -1,0 +1,13 @@
+windows:
+  hosts:
+    windows_vm:
+      ansible_host: ${fqdn}
+      ansible_user: ${admin_username}
+      ansible_password: "${admin_password}"
+      ansible_port: 5986
+      ansible_connection: winrm
+      ansible_winrm_server_cert_validation: ignore
+          
+      # Custom Variables for Playbook
+      storage_account_name: ${storage_account_name}
+      storage_key: "${storage_key}"

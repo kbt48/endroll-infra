@@ -1,0 +1,10 @@
+[project]
+name = "endroll-infra"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.13"
+dependencies = [
+    "ansible>=12.3.0",
+    "pywinrm>=0.5.0",
+]
