@@ -10,7 +10,6 @@ Azure上に構築された、GPU（NVIDIA T4）を活用したビデオエンコ
 - **Compute Size**: Standard NC4as_T4_v3 (NVIDIA Tesla T4 GPU搭載)
 - **Networking**:
   - 静的パブリックIPとカスタムDNS名（`<dns_name>.japaneast.cloudapp.azure.com`）を付与。
-  - RDP (3389, 8080) および WinRM (5986) ポートを開放。
 - **GPU Driver**: NVIDIA GRID Driver (vGPU)
   - エンコード機能 (NVENC) に最適化されたドライバーを自動インストールする。
 - **Storage**: Azure Files
